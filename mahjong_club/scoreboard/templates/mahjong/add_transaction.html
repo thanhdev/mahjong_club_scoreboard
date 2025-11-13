@@ -1,0 +1,109 @@
+<!-- templates/mahjong/add_transaction.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Transaction - Mahjong Club</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <h2 class="mb-4">➕ Add Transaction</h2>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post" id="transactionForm">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label for="{{ form.player.id_for_label }}" class="form-label">Player *</label>
+                    {{ form.player }}
+                    {% if form.player.errors %}
+                        <div class="text-danger">{{ form.player.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.transaction_type.id_for_label }}" class="form-label">Transaction Type *</label>
+                    {{ form.transaction_type }}
+                    {% if form.transaction_type.errors %}
+                        <div class="text-danger">{{ form.transaction_type.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3" id="weekdayField">
+                    <label for="{{ form.weekday.id_for_label }}" class="form-label">Weekday <span class="text-muted">(Required for Session)</span></label>
+                    {{ form.weekday }}
+                    {% if form.weekday.errors %}
+                        <div class="text-danger">{{ form.weekday.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.value.id_for_label }}" class="form-label">Value ($) *</label>
+                    {{ form.value }}
+                    <small class="form-text text-muted">Use negative values for losses (e.g., -150)</small>
+                    {% if form.value.errors %}
+                        <div class="text-danger">{{ form.value.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.description.id_for_label }}" class="form-label">Description (Optional)</label>
+                    {{ form.description }}
+                    {% if form.description.errors %}
+                        <div class="text-danger">{{ form.description.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Save Transaction</button>
+                    <a href="{% url 'dashboard' %}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Show/hide weekday field based on transaction type
+        const typeField = document.getElementById('id_transaction_type');
+        const weekdayField = document.getElementById('weekdayField');
+        
+        function toggleWeekdayField() {
+            if (typeField.value === 'SESSION') {
+                weekdayField.style.display = 'block';
+            } else {
+                weekdayField.style.display = 'none';
+                document.getElementById('id_weekday').value = '';
+            }
+        }
+        
+        typeField.addEventListener('change', toggleWeekdayField);
+        toggleWeekdayField(); // Initial state
+    </script>
+</body>
+</html>

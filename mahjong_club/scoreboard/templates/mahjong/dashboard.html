@@ -1,0 +1,136 @@
+<!-- templates/mahjong/dashboard.html -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mahjong Club Scoreboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        .scoreboard-table {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        .positive {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .negative {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .header-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        table th {
+            background-color: #343a40;
+            color: black;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .pool-display {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="header-section">
+            <div class="row align-items-center">
+                <div class="col-md-4">
+                    <h1>🀄 Mahjong Club Scoreboard</h1>
+                    <p class="text-muted mb-0">{{ current_week }}</p>
+                </div>
+                <div class="col-md-4 text-center">
+                    <div class="pool-display">
+                        Pool: ${{ pool.balance }}
+                    </div>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="{% url 'add_transaction' %}" class="btn btn-primary me-2">➕ Add Score</a>
+                    <a href="{% url 'new_week' %}" class="btn btn-success me-2">🔄 New Week</a>
+                    <a href="{% url 'transaction_history' %}" class="btn btn-info me-2">📜 History</a>
+                    <a href="{% url 'manage_players' %}" class="btn btn-secondary">👥 Players</a>
+                </div>
+            </div>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="scoreboard-table">
+            <table class="table table-striped table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Total Score</th>
+                        <th>Pay-in/out Balance</th>
+                        <th>Total This Week</th>
+                        {% for day in weekdays %}
+                            <th>{{ day }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for data in player_data %}
+                        <tr>
+                            <td><strong>{{ data.player.name }}</strong></td>
+                            <td class="{% if data.total_score >= 0 %}positive{% else %}negative{% endif %}">
+                                ${{ data.total_score }}
+                            </td>
+                            <td class="{% if data.payin_payout >= 0 %}positive{% else %}negative{% endif %}">
+                                ${{ data.payin_payout }}
+                            </td>
+                            <td class="{% if data.weekly_total >= 0 %}positive{% else %}negative{% endif %}">
+                                ${{ data.weekly_total }}
+                            </td>
+                            {% for score in data.sessions %}
+                                <td class="{% if score > 0 %}positive{% elif score < 0 %}negative{% endif %}">
+                                    {% if score != 0 %}${{ score }}{% else %}-{% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="{{ weekdays|length|add:4 }}" class="text-center text-muted py-4">
+                                No players yet. <a href="{% url 'manage_players' %}">Add a player</a> to get started.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-4 text-muted">
+            <small>
+                <strong>Cashback Rules:</strong> 
+                Players with losses ≥$200 and <$500 receive $50 cashback. 
+                Losses ≥$500 receive $100 cashback. 
+                Cashback is deducted from winning players proportionally.
+            </small>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
