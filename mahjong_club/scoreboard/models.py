@@ -90,6 +90,32 @@ class Week(models.Model):
         pool = Pool.get_pool()
         cashback_total = Decimal("0")
 
+        # Validate that for each weekday, the sum of SESSION transactions across all players is zero
+        weekdays = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        ]
+        imbalanced = []
+        for day in weekdays:
+            total_for_day = (
+                Transaction.objects.filter(week=current_week, transaction_type="SESSION", weekday=day)
+                .aggregate(total=Sum("value"))["total"]
+                or Decimal("0")
+            )
+            if total_for_day != Decimal("0"):
+                imbalanced.append((day, total_for_day))
+        if imbalanced:
+            # Build a helpful error message
+            msg_parts = [f"{d}: {t}" for d, t in imbalanced]
+            raise ValueError(
+                "Session totals are not balanced for the following weekdays: " + ", ".join(msg_parts)
+            )
+
         # Update all players' total scores and also apply cashback
         for player in Player.objects.all():
             weekly_total = player.get_weekly_total()
