@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-0lzxa69=!%7g=-=^@-*tury80(h$$u7db#ewl%6hgagr%vgn5z
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["mahjongscoreboard.pythonanywhere.com"]
 
 
 # Application definition
