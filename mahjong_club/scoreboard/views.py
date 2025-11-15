@@ -4,6 +4,9 @@ from django.contrib import messages
 from django.db.models import Sum
 from .models import Player, Week, Transaction, Pool
 from .forms import TransactionForm, PlayerForm
+from django.template.loader import render_to_string
+from django.http import HttpResponse, HttpResponseBadRequest
+from decimal import Decimal
 
 
 def dashboard(request):
@@ -37,11 +40,13 @@ def dashboard(request):
         }
         player_data.append(player_info)
 
+
     context = {
         "player_data": player_data,
         "weekdays": weekdays,
         "current_week": current_week,
         "pool": pool,
+        
     }
     return render(request, "mahjong/dashboard.html", context)
 
@@ -66,6 +71,52 @@ def add_transaction(request):
         form = TransactionForm()
 
     return render(request, "mahjong/add_transaction.html", {"form": form})
+
+
+def add_session_htmx(request):
+    """HTMX endpoint to add a SESSION transaction and return updated weekday cell fragment."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("Invalid method")
+
+    player_id = request.POST.get("player")
+    weekday = request.POST.get("weekday")
+    value = request.POST.get("value")
+
+    if not player_id or not weekday or value in (None, ""):
+        return HttpResponseBadRequest("Missing fields")
+
+    try:
+        player = Player.objects.get(id=player_id)
+        value_dec = Decimal(value)
+    except Exception:
+        return HttpResponseBadRequest("Invalid player or value")
+
+    transaction = Transaction.objects.create(
+        player=player,
+        week=Week.get_current_week(),
+        transaction_type="SESSION",
+        weekday=weekday,
+        value=value_dec,
+    )
+
+    # Recompute the day's total across all players
+    day_total = (
+        Transaction.objects.filter(
+            week=Week.get_current_week(), transaction_type="SESSION", weekday=weekday
+        )
+        .aggregate(total=Sum("value"))["total"]
+        or Decimal("0")
+    )
+
+    # Render partial cell HTML for this player and weekday
+    context = {
+        "player": player,
+        "weekday": weekday,
+        "score": player.get_session_scores().get(weekday, Decimal("0")),
+        "day_total": day_total,
+    }
+    html = render_to_string("mahjong/partials/weekday_cell.html", context)
+    return HttpResponse(html)
 
 
 def transaction_history(request):

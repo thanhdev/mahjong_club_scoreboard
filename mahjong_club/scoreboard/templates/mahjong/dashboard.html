@@ -107,10 +107,10 @@
                             {% for day, score in data.sessions %}
                                 <td class="weekday-cell {% if score > 0 %}positive{% elif score < 0 %}negative{% endif %}" data-weekday="{{ day }}" data-player="{{ data.player.id }}">
                                     <div class="d-flex flex-column align-items-center">
-                                        <div class="score-display">
+                                        <div class="score-display" id="score-{{ data.player.id }}-{{ day }}">
                                             {% if score != 0 %}${{ score }}{% else %}-{% endif %}
                                         </div>
-                                        <form method="post" action="{% url 'add_transaction' %}" class="inline-weekday-form mt-1 d-none" style="width:100%;">
+                                        <form method="post" hx-post="{% url 'add_session_htmx' %}" hx-swap="outerHTML" hx-target="#score-{{ data.player.id }}-{{ day }}" class="inline-weekday-form mt-1 d-none" style="width:100%;">
                                             {% csrf_token %}
                                             <input type="hidden" name="player" value="{{ data.player.id }}" />
                                             <input type="hidden" name="transaction_type" value="SESSION" />
@@ -132,6 +132,7 @@
                         </tr>
                     {% endfor %}
                 </tbody>
+                
             </table>
         </div>
 
@@ -179,8 +180,25 @@
                     openForm = null;
                 }
             });
+            // When htmx swaps in the updated score div, hide any open inline form
+            document.body.addEventListener('htmx:afterSwap', function(evt) {
+                try {
+                    var target = evt.detail.target;
+                    if (target && target.id && target.id.indexOf('score-') === 0) {
+                        if (openForm) {
+                            openForm.classList.add('d-none');
+                            openForm = null;
+                        }
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            });
         });
     </script>
+
+        <!-- htmx for inline updates -->
+        <script src="https://unpkg.com/htmx.org@1.9.5"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
