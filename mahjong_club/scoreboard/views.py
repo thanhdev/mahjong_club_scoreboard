@@ -26,12 +26,14 @@ def dashboard(request):
 
     for player in players:
         session_scores = player.get_session_scores()
+        # build list of (weekday, score) pairs to allow weekday-aware rendering in template
+        session_list = [(day, session_scores.get(day, 0)) for day in weekdays]
         player_info = {
             "player": player,
             "total_score": player.total_score,
             "payin_payout": player.get_payin_payout_balance(),
             "weekly_total": player.get_weekly_total(),
-            "sessions": [session_scores.get(day, 0) for day in weekdays],
+            "sessions": session_list,
         }
         player_data.append(player_info)
 

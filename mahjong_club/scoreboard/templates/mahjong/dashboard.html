@@ -61,7 +61,7 @@
                     </div>
                 </div>
                 <div class="col-md-4 text-end">
-                    <a href="{% url 'add_transaction' %}" class="btn btn-primary me-2">➕ Add Score</a>
+                    <!-- Inline row forms will allow adding score directly; keep New Week and others -->
                     <a href="{% url 'new_week' %}" class="btn btn-success me-2">🔄 New Week</a>
                     <a href="{% url 'transaction_history' %}" class="btn btn-info me-2">📜 History</a>
                     <a href="{% url 'manage_players' %}" class="btn btn-secondary">👥 Players</a>
@@ -104,9 +104,23 @@
                             <td class="{% if data.weekly_total >= 0 %}positive{% else %}negative{% endif %}">
                                 ${{ data.weekly_total }}
                             </td>
-                            {% for score in data.sessions %}
-                                <td class="{% if score > 0 %}positive{% elif score < 0 %}negative{% endif %}">
-                                    {% if score != 0 %}${{ score }}{% else %}-{% endif %}
+                            {% for day, score in data.sessions %}
+                                <td class="weekday-cell {% if score > 0 %}positive{% elif score < 0 %}negative{% endif %}" data-weekday="{{ day }}" data-player="{{ data.player.id }}">
+                                    <div class="d-flex flex-column align-items-center">
+                                        <div class="score-display">
+                                            {% if score != 0 %}${{ score }}{% else %}-{% endif %}
+                                        </div>
+                                        <form method="post" action="{% url 'add_transaction' %}" class="inline-weekday-form mt-1 d-none" style="width:100%;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="player" value="{{ data.player.id }}" />
+                                            <input type="hidden" name="transaction_type" value="SESSION" />
+                                            <input type="hidden" name="weekday" class="weekday-input" value="" />
+                                            <div class="input-group input-group-sm" style="max-width:110px;">
+                                                <input type="number" name="value" step="0.01" class="form-control form-control-sm value-input" placeholder="0.00" required style="max-width:80px;" maxlength="7" />
+                                                <button type="submit" class="btn btn-primary btn-sm">✓</button>
+                                            </div>
+                                        </form>
+                                    </div>
                                 </td>
                             {% endfor %}
                         </tr>
@@ -130,6 +144,43 @@
             </small>
         </div>
     </div>
+
+    <script>
+        // Click a weekday cell to open small inline session form
+        document.addEventListener('DOMContentLoaded', function() {
+            var openForm = null;
+            document.querySelectorAll('.weekday-cell').forEach(function(cell) {
+                cell.addEventListener('click', function(e) {
+                    // Don't trigger when clicking on the form itself
+                    if (e.target.closest('form')) return;
+                    var form = cell.querySelector('.inline-weekday-form');
+                    var weekday = cell.getAttribute('data-weekday');
+                    var weekdayInput = form.querySelector('.weekday-input');
+                    var valueInput = form.querySelector('.value-input');
+                    // hide other open forms
+                    document.querySelectorAll('.inline-weekday-form').forEach(function(f) {
+                        if (f !== form) f.classList.add('d-none');
+                    });
+                    weekdayInput.value = weekday;
+                    form.classList.remove('d-none');
+                    valueInput.focus();
+                    openForm = form;
+                    e.stopPropagation();
+                });
+            });
+            // Prevent click from bubbling when interacting with form controls
+            document.querySelectorAll('.inline-weekday-form').forEach(function(f) {
+                f.addEventListener('click', function(e) { e.stopPropagation(); });
+            });
+            // Close open form when clicking anywhere else
+            document.addEventListener('click', function(e) {
+                if (openForm) {
+                    openForm.classList.add('d-none');
+                    openForm = null;
+                }
+            });
+        });
+    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
