@@ -12,7 +12,7 @@
             padding: 20px;
         }
         .confirm-container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             background: white;
             padding: 30px;
@@ -48,14 +48,29 @@
                 </p>
                 <ul class="mb-0">
                     <li>Add each player's weekly total to their overall total score</li>
-                    <li>Calculate and apply cashback for players with losses</li>
-                    <li>Deduct cashback amounts from winning players</li>
-                    <li>Clear all session scores for a fresh start</li>
+                    <li>Apply cashback rules (winners are deducted; players with losses receive cashback)</li>
+                    <li>Update the Pool by the net cashback amount</li>
                     <li>Finalize the current week ({{ current_week }})</li>
                 </ul>
             </div>
 
             <h4 class="mb-3">Preview of Changes:</h4>
+            
+            {% if total_cashback > 0 %}
+            <div class="alert alert-success">
+                <strong>Pool will increase by: ${{ total_cashback }}</strong>
+                <p class="mb-0 small">Net gain to the Pool from winner deductions.</p>
+            </div>
+            {% elif total_cashback < 0 %}
+            <div class="alert alert-warning">
+                <strong>Pool will decrease by: ${{ total_cashback }}</strong>
+                <p class="mb-0 small">Net payout from the Pool to losing players.</p>
+            </div>
+            {% else %}
+            <div class="alert alert-secondary">
+                <strong>No net change to the Pool.</strong>
+            </div>
+            {% endif %}
             
             <div class="table-responsive">
                 <table class="table table-bordered">
@@ -63,9 +78,10 @@
                         <tr>
                             <th>Player</th>
                             <th>Current Total</th>
-                            <th>Weekly Total</th>
-                            <th>New Total After Week</th>
-                            <th>Eligible Cashback</th>
+                            <th>Original Weekly</th>
+                            <th>Adjustment</th>
+                            <th>Final Weekly</th>
+                            <th>New Total</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -78,17 +94,20 @@
                                 <td class="{% if data.weekly_total >= 0 %}positive{% else %}negative{% endif %}">
                                     ${{ data.weekly_total }}
                                 </td>
+                                <td class="{% if data.cashback_change < 0 %}negative{% elif data.cashback_change > 0 %}positive{% endif %}">
+                                    {% if data.cashback_change == 0 %}
+                                        <span class="text-muted">-</span>
+                                    {% elif data.cashback_change < 0 %}
+                                        <span class="badge bg-warning">-${{ data.cashback_change|floatformat:2|slice:"1:" }}</span>
+                                    {% else %}
+                                        <span class="badge bg-success">+${{ data.cashback_change|floatformat:2 }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="{% if data.final_weekly >= 0 %}positive{% else %}negative{% endif %}">
+                                    <strong>${{ data.final_weekly }}</strong>
+                                </td>
                                 <td class="{% if data.new_total >= 0 %}positive{% else %}negative{% endif %}">
                                     ${{ data.new_total }}
-                                </td>
-                                <td>
-                                    {% if data.weekly_total <= -500 %}
-                                        <span class="badge bg-success">$100</span>
-                                    {% elif data.weekly_total <= -200 %}
-                                        <span class="badge bg-info">$50</span>
-                                    {% else %}
-                                        <span class="text-muted">-</span>
-                                    {% endif %}
                                 </td>
                             </tr>
                         {% endfor %}
@@ -97,12 +116,13 @@
             </div>
 
             <div class="alert alert-info">
-                <strong>Cashback Rules:</strong>
+                <strong>Cashback Rules (applied on week finalization):</strong>
                 <ul class="mb-0">
-                    <li>Losses ≥ $200 and < $500: +$50 cashback</li>
-                    <li>Losses ≥ $500: +$100 cashback</li>
-                    <li>Cashback is deducted from winning players proportionally</li>
-                    <li>Any remainder is added to the Pool</li>
+                    <li>Winners with weekly total ≥ $500: -$100 (deducted from winner)</li>
+                    <li>Winners with weekly total ≥ $200 and &lt; $500: -$50 (deducted from winner)</li>
+                    <li>Players with losses ≤ -$200 and &gt; -$500: +$50 (credited to player)</li>
+                    <li>Players with losses ≤ -$500: +$100 (credited to player)</li>
+                    <li>The Pool is updated by the net sum of these adjustments (positive = pool gains; negative = pool pays out)</li>
                 </ul>
             </div>
 
