@@ -7,6 +7,7 @@ from .forms import TransactionForm, PlayerForm
 from django.template.loader import render_to_string
 from django.http import HttpResponse, HttpResponseBadRequest
 from decimal import Decimal
+from django.template.loader import render_to_string
 
 
 def dashboard(request):
@@ -117,16 +118,39 @@ def add_session_htmx(request):
     player_weekly_total = player.get_weekly_total()
     new_total = player.total_score + player_weekly_total
 
-    # Render partial cell HTML for this player and weekday
+    # Render the whole scoreboard table and return it so the client can re-render
     context = {
-        "player": player,
-        "weekday": weekday,
-        "score": session_scores.get(weekday, Decimal("0")),
-        "day_total": day_total,
-        "weekly_total": player_weekly_total,
-        "new_total": new_total,
+        "player_data": [],
+        "weekdays": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        ],
     }
-    html = render_to_string("mahjong/partials/weekday_cell.html", context)
+    # Rebuild player_data for fresh render
+    current_week = Week.get_current_week()
+    players = Player.objects.all()
+    player_data = []
+    for p in players:
+        session_scores_p = p.get_session_scores()
+        session_list_p = [(d, session_scores_p.get(d, 0)) for d in context["weekdays"]]
+        player_data.append(
+            {
+                "player": p,
+                "total_score": p.total_score,
+                "payin_payout": p.get_payin_payout_balance(),
+                "weekly_total": p.get_weekly_total(),
+                "sessions": session_list_p,
+            }
+        )
+    context["player_data"] = player_data
+    context["current_week"] = current_week
+    context["pool"] = Pool.get_pool()
+    html = render_to_string("mahjong/partials/scoreboard_table.html", context, request=request)
     return HttpResponse(html)
 
 
@@ -175,12 +199,38 @@ def add_transaction_htmx(request):
         player=player, week=Week.get_current_week(), transaction_type__in=("PAYIN/OUT",)
     ).aggregate(total=Sum("value"))["total"] or Decimal("0")
 
+    # After creating the transaction and updating player/pool, return the full scoreboard table
+    current_week = Week.get_current_week()
+    players = Player.objects.all()
+    weekdays = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ]
+    player_data = []
+    for p in players:
+        session_scores_p = p.get_session_scores()
+        session_list_p = [(d, session_scores_p.get(d, 0)) for d in weekdays]
+        player_data.append(
+            {
+                "player": p,
+                "total_score": p.total_score,
+                "payin_payout": p.get_payin_payout_balance(),
+                "weekly_total": p.get_weekly_total(),
+                "sessions": session_list_p,
+            }
+        )
     context = {
-        "player": player,
-        "payin": payin_total,
-        "new_total": player.total_score,
+        "player_data": player_data,
+        "weekdays": weekdays,
+        "current_week": current_week,
+        "pool": Pool.get_pool(),
     }
-    html = render_to_string("mahjong/partials/payin_cell.html", context)
+    html = render_to_string("mahjong/partials/scoreboard_table.html", context, request=request)
     return HttpResponse(html)
 
 

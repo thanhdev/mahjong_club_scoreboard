@@ -1,0 +1,67 @@
+<div id="scoreboard-table-container">
+    <div class="scoreboard-table">
+        <table class="table table-striped table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Total Score</th>
+                    <th>Pay-in/out Balance</th>
+                    <th>Total This Week</th>
+                    {% for day in weekdays %}
+                        <th>{{ day }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for data in player_data %}
+                    <tr>
+                        <td><strong>{{ data.player.name }}</strong></td>
+                        <td id="total-{{ data.player.id }}" class="{% if data.total_score >= 0 %}positive{% else %}negative{% endif %}">
+                            ${{ data.total_score }}
+                        </td>
+                        <td class="{% if data.payin_payout >= 0 %}positive{% else %}negative{% endif %}">
+                            <div class="d-flex flex-column align-items-center">
+                                <div class="payin-display" id="payin-{{ data.player.id }}">${{ data.payin_payout }}</div>
+                                <form method="post" hx-post="{% url 'add_transaction_htmx' %}" hx-swap="outerHTML" hx-target="#scoreboard-table-container" class="payin-form mt-1 d-none">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="player" value="{{ data.player.id }}" />
+                                    <input type="hidden" name="transaction_type" value="PAYIN/OUT" />
+                                    <div class="input-group input-group-sm" style="max-width:130px;">
+                                        <input type="number" name="value" step="0.01" class="form-control form-control-sm" placeholder="0.00" required style="max-width:80px;" />
+                                        <button type="submit" class="btn btn-primary btn-sm">✓</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </td>
+                        <td id="weekly-{{ data.player.id }}" class="{% if data.weekly_total >= 0 %}positive{% else %}negative{% endif %}">
+                            ${{ data.weekly_total }}
+                        </td>
+                        {% for day, score in data.sessions %}
+                            <td class="weekday-cell {% if score > 0 %}positive{% elif score < 0 %}negative{% endif %}" data-weekday="{{ day }}" data-player="{{ data.player.id }}">
+                                <div class="score-display" id="score-{{ data.player.id }}-{{ day }}">
+                                    {% if score != 0 %}${{ score }}{% else %}-{% endif %}
+                                </div>
+                                <form method="post" hx-post="{% url 'add_session_htmx' %}" hx-swap="outerHTML" hx-target="#scoreboard-table-container" class="inline-weekday-form mt-1 d-none" style="width:100%;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="player" value="{{ data.player.id }}" />
+                                    <input type="hidden" name="transaction_type" value="SESSION" />
+                                    <input type="hidden" name="weekday" class="weekday-input" value="" />
+                                    <div class="input-group input-group-sm" style="max-width:110px;">
+                                        <input type="number" name="value" step="0.01" class="form-control form-control-sm value-input" placeholder="0.00" required style="max-width:80px;" maxlength="7" />
+                                        <button type="submit" class="btn btn-primary btn-sm">✓</button>
+                                    </div>
+                                </form>
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="{{ weekdays|length|add:4 }}" class="text-center text-muted py-4">
+                            No players yet. <a href="{% url 'manage_players' %}">Add a player</a> to get started.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

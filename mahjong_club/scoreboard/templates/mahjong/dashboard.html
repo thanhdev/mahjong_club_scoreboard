@@ -3,7 +3,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mahjong Club Scoreboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -61,7 +61,6 @@
                     </div>
                 </div>
                 <div class="col-md-4 text-end">
-                    <!-- Inline row forms will allow adding score directly; keep New Week and others -->
                     <a href="{% url 'new_week' %}" class="btn btn-success me-2">🔄 New Week</a>
                     <a href="{% url 'transaction_history' %}" class="btn btn-info me-2">📜 History</a>
                     <a href="{% url 'manage_players' %}" class="btn btn-secondary">👥 Players</a>
@@ -78,226 +77,77 @@
             {% endfor %}
         {% endif %}
 
-        <div class="scoreboard-table">
-            <table class="table table-striped table-hover mb-0">
-                <thead>
-                    <tr>
-                        <th>Player</th>
-                        <th>Total Score</th>
-                        <th>Pay-in/out Balance</th>
-                        <th>Total This Week</th>
-                        {% for day in weekdays %}
-                            <th>{{ day }}</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for data in player_data %}
-                        <tr>
-                            <td><strong>{{ data.player.name }}</strong></td>
-                            <td id="total-{{ data.player.id }}" class="{% if data.total_score >= 0 %}positive{% else %}negative{% endif %}">
-                                ${{ data.total_score }}
-                            </td>
-                            <td class="{% if data.payin_payout >= 0 %}positive{% else %}negative{% endif %}">
-                                <div class="d-flex flex-column align-items-center">
-                                    <div class="payin-display" id="payin-{{ data.player.id }}">${{ data.payin_payout }}</div>
-                                    <form method="post" hx-post="{% url 'add_transaction_htmx' %}" hx-swap="outerHTML" hx-target="#payin-{{ data.player.id }}" class="payin-form mt-1 d-none">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="player" value="{{ data.player.id }}" />
-                                        <input type="hidden" name="transaction_type" value="PAYIN/OUT" />
-                                        <div class="input-group input-group-sm mt-1" style="max-width:130px;">
-                                            <input type="number" name="value" step="0.01" class="form-control form-control-sm" placeholder="0.00" required style="max-width:80px;" />
-                                            <button type="submit" class="btn btn-primary btn-sm">✓</button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </td>
-                            <td id="weekly-{{ data.player.id }}" class="{% if data.weekly_total >= 0 %}positive{% else %}negative{% endif %}">
-                                ${{ data.weekly_total }}
-                            </td>
-                            {% for day, score in data.sessions %}
-                                <td class="weekday-cell {% if score > 0 %}positive{% elif score < 0 %}negative{% endif %}" data-weekday="{{ day }}" data-player="{{ data.player.id }}">
-                                    <div class="d-flex flex-column align-items-center">
-                                        <div class="score-display" id="score-{{ data.player.id }}-{{ day }}">
-                                            {% if score != 0 %}${{ score }}{% else %}-{% endif %}
-                                        </div>
-                                        <form method="post" hx-post="{% url 'add_session_htmx' %}" hx-swap="outerHTML" hx-target="#score-{{ data.player.id }}-{{ day }}" class="inline-weekday-form mt-1 d-none" style="width:100%;">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="player" value="{{ data.player.id }}" />
-                                            <input type="hidden" name="transaction_type" value="SESSION" />
-                                            <input type="hidden" name="weekday" class="weekday-input" value="" />
-                                            <div class="input-group input-group-sm" style="max-width:110px;">
-                                                <input type="number" name="value" step="0.01" class="form-control form-control-sm value-input" placeholder="0.00" required style="max-width:80px;" maxlength="7" />
-                                                <button type="submit" class="btn btn-primary btn-sm">✓</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </td>
-                            {% endfor %}
-                        </tr>
-                    {% empty %}
-                        <tr>
-                            <td colspan="{{ weekdays|length|add:4 }}" class="text-center text-muted py-4">
-                                No players yet. <a href="{% url 'manage_players' %}">Add a player</a> to get started.
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-                
-            </table>
-        </div>
+        {% include 'mahjong/partials/scoreboard_table.html' %}
 
         <div class="mt-4 text-muted">
             <small>
-                <strong>Cashback Rules:</strong> 
-                Players with losses ≥$200 and <$500 receive $50 cashback. 
-                Losses ≥$500 receive $100 cashback. 
+                <strong>Cashback Rules:</strong>
+                Players with losses ≥$200 and <$500 receive $50 cashback.
+                Losses ≥$500 receive $100 cashback.
                 Cashback is deducted from winning players proportionally.
             </small>
         </div>
     </div>
 
-    <script>
-        // Click a weekday cell to open small inline session form
-        document.addEventListener('DOMContentLoaded', function() {
-            var openForm = null;
-            document.querySelectorAll('.weekday-cell').forEach(function(cell) {
-                cell.addEventListener('click', function(e) {
-                    // Don't trigger when clicking on the form itself
-                    if (e.target.closest('form')) return;
-                    var form = cell.querySelector('.inline-weekday-form');
-                    var weekday = cell.getAttribute('data-weekday');
-                    var weekdayInput = form.querySelector('.weekday-input');
-                    var valueInput = form.querySelector('.value-input');
-                    // hide other open forms
-                    document.querySelectorAll('.inline-weekday-form').forEach(function(f) {
-                        if (f !== form) f.classList.add('d-none');
-                    });
-                    weekdayInput.value = weekday;
-                    form.classList.remove('d-none');
-                    valueInput.focus();
-                    openForm = form;
-                    e.stopPropagation();
-                });
-            });
-            // Pay-in/out inline forms
-            document.querySelectorAll('.payin-display').forEach(function(display) {
-                display.addEventListener('click', function(e) {
-                    var playerId = display.getAttribute('id').replace('payin-', '');
-                    var form = display.parentElement.querySelector('.payin-form');
-                    // hide other open forms
-                    document.querySelectorAll('.payin-form').forEach(function(f) {
-                        if (f !== form) f.classList.add('d-none');
-                    });
-                    form.classList.toggle('d-none');
-                    if (!form.classList.contains('d-none')) {
-                        openForm = form;
-                        // focus the numeric input inside the form
-                        var valInput = form.querySelector('input[name="value"]');
-                        if (valInput) {
-                            // small timeout to ensure visibility
-                            setTimeout(function() { valInput.focus(); }, 10);
-                        }
-                    } else {
-                        openForm = null;
-                    }
-                    e.stopPropagation();
-                });
-            });
-            // Prevent click from bubbling when interacting with form controls
-            document.querySelectorAll('.inline-weekday-form').forEach(function(f) {
-                f.addEventListener('click', function(e) { e.stopPropagation(); });
-            });
-            // Close open form when clicking anywhere else
-            document.addEventListener('click', function(e) {
-                if (openForm) {
-                    openForm.classList.add('d-none');
-                    openForm = null;
-                }
-            });
-            // When htmx swaps in the updated score div, hide any open inline form
-            document.body.addEventListener('htmx:afterSwap', function(evt) {
-                try {
-                    var target = evt.detail.target;
-                    if (target && target.id) {
-                        if (target.id.indexOf('score-') === 0) {
-                            // hide open inline form
-                            if (openForm) {
-                                openForm.classList.add('d-none');
-                                openForm = null;
-                            }
-                            // update weekly and total cells if provided as data attributes
-                            var weekly = target.getAttribute('data-weekly-total');
-                            var newTotal = target.getAttribute('data-new-total');
-                            if (weekly !== null) {
-                                // target id format: score-<player>-<weekday>
-                                var parts = target.id.split('-');
-                                var playerId = parts[1];
-                                var weeklyCell = document.getElementById('weekly-' + playerId);
-                                if (weeklyCell) {
-                                    weeklyCell.textContent = '$' + weekly;
-                                    var wval = parseFloat(weekly);
-                                    if (!isNaN(wval)) {
-                                        weeklyCell.classList.toggle('positive', wval >= 0);
-                                        weeklyCell.classList.toggle('negative', wval < 0);
-                                    }
-                                }
-                            }
-                            // also update the td class for this session cell based on the returned score
-                            try {
-                                var td = target.closest('td');
-                                if (td) {
-                                    var txt = target.textContent.replace(/[^0-9.-]/g, '');
-                                    var sval = parseFloat(txt);
-                                    td.classList.toggle('positive', !isNaN(sval) && sval > 0);
-                                    td.classList.toggle('negative', !isNaN(sval) && sval < 0);
-                                }
-                            } catch (e) {}
-                            if (newTotal !== null) {
-                                var parts = target.id.split('-');
-                                var playerId = parts[1];
-                                var totalCell = document.getElementById('total-' + playerId);
-                                if (totalCell) {
-                                    totalCell.textContent = '$' + newTotal;
-                                    var val = parseFloat(newTotal);
-                                    if (!isNaN(val)) {
-                                        totalCell.classList.toggle('positive', val >= 0);
-                                        totalCell.classList.toggle('negative', val < 0);
-                                    }
-                                }
-                            }
-                        }
-                        // if payin fragment swapped in, update total cell from data-new-total
-                        if (target.id.indexOf('payin-') === 0) {
-                            var playerId = target.id.replace('payin-', '');
-                            var newTotal = target.getAttribute('data-new-total');
-                            if (newTotal !== null) {
-                                var totalCell = document.getElementById('total-' + playerId);
-                                if (totalCell) {
-                                    totalCell.textContent = '$' + newTotal;
-                                    var val = parseFloat(newTotal);
-                                    if (!isNaN(val)) {
-                                        totalCell.classList.toggle('positive', val >= 0);
-                                        totalCell.classList.toggle('negative', val < 0);
-                                    }
-                                }
-                            }
-                            // hide open inline form after payin update
-                            if (openForm) {
-                                openForm.classList.add('d-none');
-                                openForm = null;
-                            }
-                        }
-                    }
-                } catch (e) {
-                    // ignore
-                }
-            });
-        });
-    </script>
+    <!-- htmx for inline updates -->
+    <script src="https://unpkg.com/htmx.org@1.9.5"></script>
 
-        <!-- htmx for inline updates -->
-        <script src="https://unpkg.com/htmx.org@1.9.5"></script>
+    <script>
+        // Delegated event handling so newly swapped-in table works without re-binding
+        (function() {
+            function hideAllInlineForms() {
+                document.querySelectorAll('.inline-weekday-form, .payin-form').forEach(function(f) {
+                    f.classList.add('d-none');
+                });
+            }
+
+            document.addEventListener('click', function(e) {
+                // If click is inside an inline form, do nothing
+                if (e.target.closest('.inline-weekday-form') || e.target.closest('.payin-form')) {
+                    return;
+                }
+
+                // Payin display clicked
+                var payinDisplay = e.target.closest('.payin-display');
+                if (payinDisplay) {
+                    hideAllInlineForms();
+                    var form = payinDisplay.parentElement.querySelector('.payin-form');
+                    if (form) {
+                        form.classList.remove('d-none');
+                        var valInput = form.querySelector('input[name="value"]');
+                        if (valInput) setTimeout(function() { valInput.focus(); }, 10);
+                    }
+                    e.stopPropagation();
+                    return;
+                }
+
+                // Weekday cell clicked
+                var weekdayCell = e.target.closest('.weekday-cell');
+                if (weekdayCell) {
+                    hideAllInlineForms();
+                    var form = weekdayCell.querySelector('.inline-weekday-form');
+                    if (form) {
+                        var weekday = weekdayCell.getAttribute('data-weekday');
+                        var weekdayInput = form.querySelector('.weekday-input');
+                        if (weekdayInput) weekdayInput.value = weekday;
+                        form.classList.remove('d-none');
+                        var valInput = form.querySelector('input[name="value"]');
+                        if (valInput) setTimeout(function() { valInput.focus(); }, 10);
+                    }
+                    e.stopPropagation();
+                    return;
+                }
+
+                // Click elsewhere: hide forms
+                hideAllInlineForms();
+            });
+
+            // After any HTMX swap, ensure forms are hidden (table replaced)
+            document.body.addEventListener('htmx:afterSwap', function() {
+                hideAllInlineForms();
+            });
+        })();
+    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
