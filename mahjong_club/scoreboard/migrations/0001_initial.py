@@ -93,8 +93,7 @@ class Migration(migrations.Migration):
                     "transaction_type",
                     models.CharField(
                         choices=[
-                            ("PAYIN", "Pay-in"),
-                            ("PAYOUT", "Pay-out"),
+                            ("PAYIN/OUT", "Pay-in/Out"),
                             ("SESSION", "Session Score"),
                             ("CASHBACK", "Cashback"),
                             ("CASHBACK_DEDUCTION", "Cashback Deduction"),

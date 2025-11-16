@@ -64,6 +64,11 @@ def add_transaction(request):
                 messages.error(request, "Session transactions must specify a weekday.")
                 return render(request, "mahjong/add_transaction.html", {"form": form})
 
+            # If PAYIN/OUT, update player's total_score
+            if transaction.transaction_type == "PAYIN/OUT" and transaction.player:
+                transaction.player.total_score += transaction.value
+                transaction.player.save()
+
             transaction.save()
             messages.success(request, "Transaction added successfully!")
             return redirect("dashboard")
@@ -119,6 +124,58 @@ def add_session_htmx(request):
     return HttpResponse(html)
 
 
+def add_transaction_htmx(request):
+    """HTMX endpoint to add a PAYIN or PAYOUT transaction and return updated payin cell fragment."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("Invalid method")
+
+    player_id = request.POST.get("player")
+    transaction_type = request.POST.get("transaction_type")
+    value = request.POST.get("value")
+
+    if not player_id or not transaction_type or value in (None, ""):
+        return HttpResponseBadRequest("Missing fields")
+
+    # Accept the combined PAYIN/OUT transaction type
+    if transaction_type != "PAYIN/OUT":
+        return HttpResponseBadRequest("Invalid transaction type")
+
+    try:
+        player = Player.objects.get(id=player_id)
+        value_dec = Decimal(value)
+    except Exception:
+        return HttpResponseBadRequest("Invalid player or value")
+
+    transaction = Transaction.objects.create(
+        player=player,
+        week=Week.get_current_week(),
+        transaction_type=transaction_type,
+        value=value_dec,
+    )
+
+    # Update player's total_score for PAYIN/OUT transactions
+    if transaction_type == "PAYIN/OUT" and player:
+        player.total_score += value_dec
+        player.save()
+
+    # Recompute the player's payin/payout balance for current week
+    payin_total = (
+        Transaction.objects.filter(
+            player=player, week=Week.get_current_week(), transaction_type__in=("PAYIN/OUT",)
+        )
+        .aggregate(total=Sum("value"))["total"]
+        or Decimal("0")
+    )
+
+    context = {
+        "player": player,
+        "payin": payin_total,
+    "new_total": player.total_score,
+    }
+    html = render_to_string("mahjong/partials/payin_cell.html", context)
+    return HttpResponse(html)
+
+
 def transaction_history(request):
     """View transaction history with revert capability"""
     current_week = Week.get_current_week()
@@ -136,6 +193,10 @@ def transaction_history(request):
 def revert_transaction(request, transaction_id):
     """Revert a specific transaction"""
     transaction = get_object_or_404(Transaction, id=transaction_id)
+    current_week = Week.get_current_week()
+    if transaction.week != current_week:
+        messages.error(request, "Only transactions from the current week can be reverted.")
+        return redirect("transaction_history")
 
     if not transaction.is_reverted:
         transaction.revert()
@@ -172,7 +233,7 @@ def new_week(request):
         original_total = Transaction.objects.filter(
             player=player,
             week=current_week,
-            transaction_type__in=["PAYIN", "PAYOUT", "SESSION"],
+            transaction_type__in=["PAYIN/OUT", "SESSION"],
         ).aggregate(total=Sum("value"))["total"] or Decimal("0")
         player_totals[player.id] = original_total
 

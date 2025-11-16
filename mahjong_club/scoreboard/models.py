@@ -20,8 +20,7 @@ class Player(models.Model):
         """Calculate total pay-in/pay-out balance for current week"""
         balance = Transaction.objects.filter(
             player=self,
-            week=Week.get_current_week(),
-            transaction_type__in=["PAYIN", "PAYOUT"],
+            transaction_type=Transaction.TransactionType.PAYIN_OUT,
         ).aggregate(total=Sum("value"))["total"] or Decimal("0")
         return balance
 
@@ -31,7 +30,7 @@ class Player(models.Model):
         total = Transaction.objects.filter(
             player=self,
             week=current_week,
-            transaction_type="SESSION",
+            transaction_type=Transaction.TransactionType.SESSION,
         ).aggregate(total=Sum("value"))["total"] or Decimal("0")
         return total
 
@@ -141,9 +140,9 @@ class Week(models.Model):
             pool.save()
             Transaction.objects.create(
                 week=current_week,
-                transaction_type="POOL_ADDITION",
+                transaction_type=Transaction.TransactionType.POOL_ADDITION,
                 value=cashback_total,
-                description="Cashback to pool (no winners)",
+                description="Cashback to pool",
             )
 
         # Finalize current week
@@ -162,29 +161,26 @@ class Week(models.Model):
 
 
 class Transaction(models.Model):
-    TRANSACTION_TYPES = [
-        ("PAYIN", "Pay-in"),
-        ("PAYOUT", "Pay-out"),
-        ("SESSION", "Session Score"),
-        ("CASHBACK", "Cashback"),
-        ("CASHBACK_DEDUCTION", "Cashback Deduction"),
-        ("POOL_ADDITION", "Pool Addition"),
-    ]
+    class TransactionType(models.TextChoices):
+        PAYIN_OUT = "PAYIN/OUT", "Pay-in/Out"
+        SESSION = "SESSION", "Session Score"
+        CASHBACK = "CASHBACK", "Cashback"
+        CASHBACK_DEDUCTION = "CASHBACK_DEDUCTION", "Cashback Deduction"
+        POOL_ADDITION = "POOL_ADDITION", "Pool Addition"
 
-    WEEKDAYS = [
-        ("Monday", "Monday"),
-        ("Tuesday", "Tuesday"),
-        ("Wednesday", "Wednesday"),
-        ("Thursday", "Thursday"),
-        ("Friday", "Friday"),
-        ("Saturday", "Saturday"),
-        ("Sunday", "Sunday"),
-    ]
+    class Weekday(models.TextChoices):
+        MONDAY = "Monday", "Monday"
+        TUESDAY = "Tuesday", "Tuesday"
+        WEDNESDAY = "Wednesday", "Wednesday"
+        THURSDAY = "Thursday", "Thursday"
+        FRIDAY = "Friday", "Friday"
+        SATURDAY = "Saturday", "Saturday"
+        SUNDAY = "Sunday", "Sunday"
 
     player = models.ForeignKey(Player, on_delete=models.CASCADE, null=True, blank=True)
     week = models.ForeignKey(Week, on_delete=models.CASCADE)
-    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
-    weekday = models.CharField(max_length=10, choices=WEEKDAYS, null=True, blank=True)
+    transaction_type = models.CharField(max_length=20, choices=TransactionType.choices)
+    weekday = models.CharField(max_length=10, choices=Weekday.choices, null=True, blank=True)
     value = models.DecimalField(max_digits=10, decimal_places=2)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -209,6 +205,11 @@ class Transaction(models.Model):
                 value=-self.value,
                 description=f"Reversal of transaction #{self.id}",
             )
+            # Adjust player's total_score for PAYIN/OUT reversals
+            if self.player and self.transaction_type == "PAYIN/OUT":
+                self.player.total_score -= self.value
+                self.player.save()
+
             self.is_reverted = True
             self.save()
 

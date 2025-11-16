@@ -25,8 +25,7 @@ class TransactionForm(forms.ModelForm):
         # Limit transaction types for user input
         self.fields["transaction_type"].choices = [
             ("SESSION", "Session Score"),
-            ("PAYIN", "Pay-in"),
-            ("PAYOUT", "Pay-out"),
+            ("PAYIN/OUT", "Pay-in/Out"),
         ]
         self.fields["weekday"].required = False
         self.fields["weekday"].initial = Transaction.WEEKDAYS[date.today().weekday()][0]

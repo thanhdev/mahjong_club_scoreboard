@@ -95,11 +95,22 @@
                     {% for data in player_data %}
                         <tr>
                             <td><strong>{{ data.player.name }}</strong></td>
-                            <td class="{% if data.total_score >= 0 %}positive{% else %}negative{% endif %}">
+                            <td id="total-{{ data.player.id }}" class="{% if data.total_score >= 0 %}positive{% else %}negative{% endif %}">
                                 ${{ data.total_score }}
                             </td>
                             <td class="{% if data.payin_payout >= 0 %}positive{% else %}negative{% endif %}">
-                                ${{ data.payin_payout }}
+                                <div class="d-flex flex-column align-items-center">
+                                    <div class="payin-display" id="payin-{{ data.player.id }}">${{ data.payin_payout }}</div>
+                                    <form method="post" hx-post="{% url 'add_transaction_htmx' %}" hx-swap="outerHTML" hx-target="#payin-{{ data.player.id }}" class="payin-form mt-1 d-none">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="player" value="{{ data.player.id }}" />
+                                        <input type="hidden" name="transaction_type" value="PAYIN/OUT" />
+                                        <div class="input-group input-group-sm mt-1" style="max-width:130px;">
+                                            <input type="number" name="value" step="0.01" class="form-control form-control-sm" placeholder="0.00" required style="max-width:80px;" />
+                                            <button type="submit" class="btn btn-primary btn-sm">✓</button>
+                                        </div>
+                                    </form>
+                                </div>
                             </td>
                             <td class="{% if data.weekly_total >= 0 %}positive{% else %}negative{% endif %}">
                                 ${{ data.weekly_total }}
@@ -169,6 +180,24 @@
                     e.stopPropagation();
                 });
             });
+            // Pay-in/out inline forms
+            document.querySelectorAll('.payin-display').forEach(function(display) {
+                display.addEventListener('click', function(e) {
+                    var playerId = display.getAttribute('id').replace('payin-', '');
+                    var form = display.parentElement.querySelector('.payin-form');
+                    // hide other open forms
+                    document.querySelectorAll('.payin-form').forEach(function(f) {
+                        if (f !== form) f.classList.add('d-none');
+                    });
+                    form.classList.toggle('d-none');
+                    if (!form.classList.contains('d-none')) {
+                        openForm = form;
+                    } else {
+                        openForm = null;
+                    }
+                    e.stopPropagation();
+                });
+            });
             // Prevent click from bubbling when interacting with form controls
             document.querySelectorAll('.inline-weekday-form').forEach(function(f) {
                 f.addEventListener('click', function(e) { e.stopPropagation(); });
@@ -188,6 +217,23 @@
                         if (openForm) {
                             openForm.classList.add('d-none');
                             openForm = null;
+                        }
+                    }
+                    // if payin fragment swapped in, update total cell from data-new-total
+                    if (target && target.id && target.id.indexOf('payin-') === 0) {
+                        var playerId = target.id.replace('payin-', '');
+                        var newTotal = target.getAttribute('data-new-total');
+                        if (newTotal !== null) {
+                            var totalCell = document.getElementById('total-' + playerId);
+                            if (totalCell) {
+                                totalCell.textContent = '$' + newTotal;
+                                // adjust classes based on sign
+                                var val = parseFloat(newTotal);
+                                if (!isNaN(val)) {
+                                    totalCell.classList.toggle('positive', val >= 0);
+                                    totalCell.classList.toggle('negative', val < 0);
+                                }
+                            }
                         }
                     }
                 } catch (e) {

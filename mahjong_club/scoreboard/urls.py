@@ -5,6 +5,7 @@ urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("add-transaction/", views.add_transaction, name="add_transaction"),
     path("add-session-htmx/", views.add_session_htmx, name="add_session_htmx"),
+    path("add-transaction-htmx/", views.add_transaction_htmx, name="add_transaction_htmx"),
     path("transaction-history/", views.transaction_history, name="transaction_history"),
     path(
         "revert-transaction/<int:transaction_id>/",

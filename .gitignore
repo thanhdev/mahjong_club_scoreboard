@@ -11,3 +11,4 @@ wheels/
 
 # Virtual environments
 .venv
+mahjong_club/db.sqlite3
