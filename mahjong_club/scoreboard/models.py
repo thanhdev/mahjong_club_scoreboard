@@ -210,6 +210,11 @@ class Transaction(models.Model):
             if self.player and self.transaction_type == "PAYIN/OUT":
                 self.player.total_score -= self.value
                 self.player.save()
+            # Adjust pool balance for PAYIN/OUT reversals
+            if self.transaction_type == "PAYIN/OUT":
+                pool = Pool.get_pool()
+                pool.balance -= self.value
+                pool.save()
 
             self.is_reverted = True
             self.save()

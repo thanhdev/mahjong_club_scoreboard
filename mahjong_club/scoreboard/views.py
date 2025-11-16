@@ -67,6 +67,11 @@ def add_transaction(request):
                 transaction.player.total_score += transaction.value
                 transaction.player.save()
 
+                # Update pool balance as well
+                pool = Pool.get_pool()
+                pool.balance += transaction.value
+                pool.save()
+
             transaction.save()
             messages.success(request, "Transaction added successfully!")
             return redirect("dashboard")
@@ -158,6 +163,12 @@ def add_transaction_htmx(request):
     if transaction_type == "PAYIN/OUT" and player:
         player.total_score += value_dec
         player.save()
+
+    # Update pool balance accordingly (pay-ins increase pool, pay-outs decrease pool)
+    if transaction_type == "PAYIN/OUT":
+        pool = Pool.get_pool()
+        pool.balance += value_dec
+        pool.save()
 
     # Recompute the player's payin/payout balance for current week
     payin_total = Transaction.objects.filter(
