@@ -102,7 +102,9 @@ class Week(models.Model):
         imbalanced = []
         for day in weekdays:
             total_for_day = Transaction.objects.filter(
-                week=current_week, transaction_type=Transaction.TransactionType.SESSION, weekday=day
+                week=current_week,
+                transaction_type=Transaction.TransactionType.SESSION,
+                weekday=day,
             ).aggregate(total=Sum("value"))["total"] or Decimal("0")
             if total_for_day != Decimal("0"):
                 imbalanced.append((day, total_for_day))

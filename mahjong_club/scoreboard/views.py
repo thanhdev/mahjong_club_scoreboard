@@ -150,7 +150,9 @@ def add_session_htmx(request):
     context["player_data"] = player_data
     context["current_week"] = current_week
     context["pool"] = Pool.get_pool()
-    html = render_to_string("mahjong/partials/scoreboard_table.html", context, request=request)
+    html = render_to_string(
+        "mahjong/partials/scoreboard_table.html", context, request=request
+    )
     return HttpResponse(html)
 
 
@@ -230,7 +232,9 @@ def add_transaction_htmx(request):
         "current_week": current_week,
         "pool": Pool.get_pool(),
     }
-    html = render_to_string("mahjong/partials/scoreboard_table.html", context, request=request)
+    html = render_to_string(
+        "mahjong/partials/scoreboard_table.html", context, request=request
+    )
     return HttpResponse(html)
 
 
@@ -290,10 +294,11 @@ def new_week(request):
     # Calculate original weekly totals (before cashback)
     player_totals = {}
     for player in players:
+        # Only include SESSION transactions for the weekly totals preview — exclude PAYIN/OUT
         original_total = Transaction.objects.filter(
             player=player,
             week=current_week,
-            transaction_type__in=["PAYIN/OUT", "SESSION"],
+            transaction_type="SESSION",
         ).aggregate(total=Sum("value"))["total"] or Decimal("0")
         player_totals[player.id] = original_total
 
