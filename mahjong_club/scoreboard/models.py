@@ -101,18 +101,17 @@ class Week(models.Model):
         ]
         imbalanced = []
         for day in weekdays:
-            total_for_day = (
-                Transaction.objects.filter(week=current_week, transaction_type="SESSION", weekday=day)
-                .aggregate(total=Sum("value"))["total"]
-                or Decimal("0")
-            )
+            total_for_day = Transaction.objects.filter(
+                week=current_week, transaction_type=Transaction.TransactionType.SESSION, weekday=day
+            ).aggregate(total=Sum("value"))["total"] or Decimal("0")
             if total_for_day != Decimal("0"):
                 imbalanced.append((day, total_for_day))
         if imbalanced:
             # Build a helpful error message
             msg_parts = [f"{d}: {t}" for d, t in imbalanced]
             raise ValueError(
-                "Session totals are not balanced for the following weekdays: " + ", ".join(msg_parts)
+                "Session totals are not balanced for the following weekdays: "
+                + ", ".join(msg_parts)
             )
 
         # Update all players' total scores and also apply cashback
@@ -180,7 +179,9 @@ class Transaction(models.Model):
     player = models.ForeignKey(Player, on_delete=models.CASCADE, null=True, blank=True)
     week = models.ForeignKey(Week, on_delete=models.CASCADE)
     transaction_type = models.CharField(max_length=20, choices=TransactionType.choices)
-    weekday = models.CharField(max_length=10, choices=Weekday.choices, null=True, blank=True)
+    weekday = models.CharField(
+        max_length=10, choices=Weekday.choices, null=True, blank=True
+    )
     value = models.DecimalField(max_digits=10, decimal_places=2)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

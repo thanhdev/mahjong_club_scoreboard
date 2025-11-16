@@ -1,6 +1,6 @@
 {# partial to render a single weekday cell after HTMX update #}
 <div class="d-flex flex-column align-items-center">
-        <div class="score-display" id="score-{{ player.id }}-{{ weekday }}">
+        <div class="score-display" id="score-{{ player.id }}-{{ weekday }}" data-weekly-total="{{ weekly_total }}" data-new-total="{{ new_total }}">
             {% if score != 0 %}${{ score }}{% else %}-{% endif %}
         </div>
     {# htmx out-of-band update for the totals row cell #}

@@ -112,7 +112,7 @@
                                     </form>
                                 </div>
                             </td>
-                            <td class="{% if data.weekly_total >= 0 %}positive{% else %}negative{% endif %}">
+                            <td id="weekly-{{ data.player.id }}" class="{% if data.weekly_total >= 0 %}positive{% else %}negative{% endif %}">
                                 ${{ data.weekly_total }}
                             </td>
                             {% for day, score in data.sessions %}
@@ -192,6 +192,12 @@
                     form.classList.toggle('d-none');
                     if (!form.classList.contains('d-none')) {
                         openForm = form;
+                        // focus the numeric input inside the form
+                        var valInput = form.querySelector('input[name="value"]');
+                        if (valInput) {
+                            // small timeout to ensure visibility
+                            setTimeout(function() { valInput.focus(); }, 10);
+                        }
                     } else {
                         openForm = null;
                     }
@@ -213,26 +219,73 @@
             document.body.addEventListener('htmx:afterSwap', function(evt) {
                 try {
                     var target = evt.detail.target;
-                    if (target && target.id && target.id.indexOf('score-') === 0) {
-                        if (openForm) {
-                            openForm.classList.add('d-none');
-                            openForm = null;
-                        }
-                    }
-                    // if payin fragment swapped in, update total cell from data-new-total
-                    if (target && target.id && target.id.indexOf('payin-') === 0) {
-                        var playerId = target.id.replace('payin-', '');
-                        var newTotal = target.getAttribute('data-new-total');
-                        if (newTotal !== null) {
-                            var totalCell = document.getElementById('total-' + playerId);
-                            if (totalCell) {
-                                totalCell.textContent = '$' + newTotal;
-                                // adjust classes based on sign
-                                var val = parseFloat(newTotal);
-                                if (!isNaN(val)) {
-                                    totalCell.classList.toggle('positive', val >= 0);
-                                    totalCell.classList.toggle('negative', val < 0);
+                    if (target && target.id) {
+                        if (target.id.indexOf('score-') === 0) {
+                            // hide open inline form
+                            if (openForm) {
+                                openForm.classList.add('d-none');
+                                openForm = null;
+                            }
+                            // update weekly and total cells if provided as data attributes
+                            var weekly = target.getAttribute('data-weekly-total');
+                            var newTotal = target.getAttribute('data-new-total');
+                            if (weekly !== null) {
+                                // target id format: score-<player>-<weekday>
+                                var parts = target.id.split('-');
+                                var playerId = parts[1];
+                                var weeklyCell = document.getElementById('weekly-' + playerId);
+                                if (weeklyCell) {
+                                    weeklyCell.textContent = '$' + weekly;
+                                    var wval = parseFloat(weekly);
+                                    if (!isNaN(wval)) {
+                                        weeklyCell.classList.toggle('positive', wval >= 0);
+                                        weeklyCell.classList.toggle('negative', wval < 0);
+                                    }
                                 }
+                            }
+                            // also update the td class for this session cell based on the returned score
+                            try {
+                                var td = target.closest('td');
+                                if (td) {
+                                    var txt = target.textContent.replace(/[^0-9.-]/g, '');
+                                    var sval = parseFloat(txt);
+                                    td.classList.toggle('positive', !isNaN(sval) && sval > 0);
+                                    td.classList.toggle('negative', !isNaN(sval) && sval < 0);
+                                }
+                            } catch (e) {}
+                            if (newTotal !== null) {
+                                var parts = target.id.split('-');
+                                var playerId = parts[1];
+                                var totalCell = document.getElementById('total-' + playerId);
+                                if (totalCell) {
+                                    totalCell.textContent = '$' + newTotal;
+                                    var val = parseFloat(newTotal);
+                                    if (!isNaN(val)) {
+                                        totalCell.classList.toggle('positive', val >= 0);
+                                        totalCell.classList.toggle('negative', val < 0);
+                                    }
+                                }
+                            }
+                        }
+                        // if payin fragment swapped in, update total cell from data-new-total
+                        if (target.id.indexOf('payin-') === 0) {
+                            var playerId = target.id.replace('payin-', '');
+                            var newTotal = target.getAttribute('data-new-total');
+                            if (newTotal !== null) {
+                                var totalCell = document.getElementById('total-' + playerId);
+                                if (totalCell) {
+                                    totalCell.textContent = '$' + newTotal;
+                                    var val = parseFloat(newTotal);
+                                    if (!isNaN(val)) {
+                                        totalCell.classList.toggle('positive', val >= 0);
+                                        totalCell.classList.toggle('negative', val < 0);
+                                    }
+                                }
+                            }
+                            // hide open inline form after payin update
+                            if (openForm) {
+                                openForm.classList.add('d-none');
+                                openForm = null;
                             }
                         }
                     }

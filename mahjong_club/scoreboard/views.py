@@ -40,13 +40,11 @@ def dashboard(request):
         }
         player_data.append(player_info)
 
-
     context = {
         "player_data": player_data,
         "weekdays": weekdays,
         "current_week": current_week,
         "pool": pool,
-        
     }
     return render(request, "mahjong/dashboard.html", context)
 
@@ -105,20 +103,23 @@ def add_session_htmx(request):
     )
 
     # Recompute the day's total across all players
-    day_total = (
-        Transaction.objects.filter(
-            week=Week.get_current_week(), transaction_type="SESSION", weekday=weekday
-        )
-        .aggregate(total=Sum("value"))["total"]
-        or Decimal("0")
-    )
+    day_total = Transaction.objects.filter(
+        week=Week.get_current_week(), transaction_type="SESSION", weekday=weekday
+    ).aggregate(total=Sum("value"))["total"] or Decimal("0")
+
+    # Recompute player's session score for this weekday and weekly total
+    session_scores = player.get_session_scores()
+    player_weekly_total = player.get_weekly_total()
+    new_total = player.total_score + player_weekly_total
 
     # Render partial cell HTML for this player and weekday
     context = {
         "player": player,
         "weekday": weekday,
-        "score": player.get_session_scores().get(weekday, Decimal("0")),
+        "score": session_scores.get(weekday, Decimal("0")),
         "day_total": day_total,
+        "weekly_total": player_weekly_total,
+        "new_total": new_total,
     }
     html = render_to_string("mahjong/partials/weekday_cell.html", context)
     return HttpResponse(html)
@@ -159,18 +160,14 @@ def add_transaction_htmx(request):
         player.save()
 
     # Recompute the player's payin/payout balance for current week
-    payin_total = (
-        Transaction.objects.filter(
-            player=player, week=Week.get_current_week(), transaction_type__in=("PAYIN/OUT",)
-        )
-        .aggregate(total=Sum("value"))["total"]
-        or Decimal("0")
-    )
+    payin_total = Transaction.objects.filter(
+        player=player, week=Week.get_current_week(), transaction_type__in=("PAYIN/OUT",)
+    ).aggregate(total=Sum("value"))["total"] or Decimal("0")
 
     context = {
         "player": player,
         "payin": payin_total,
-    "new_total": player.total_score,
+        "new_total": player.total_score,
     }
     html = render_to_string("mahjong/partials/payin_cell.html", context)
     return HttpResponse(html)
@@ -195,7 +192,9 @@ def revert_transaction(request, transaction_id):
     transaction = get_object_or_404(Transaction, id=transaction_id)
     current_week = Week.get_current_week()
     if transaction.week != current_week:
-        messages.error(request, "Only transactions from the current week can be reverted.")
+        messages.error(
+            request, "Only transactions from the current week can be reverted."
+        )
         return redirect("transaction_history")
 
     if not transaction.is_reverted:
